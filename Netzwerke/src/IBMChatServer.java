@@ -106,7 +106,6 @@ public class IBMChatServer {
     }
 }
 
-
 class ServerThread extends Thread {
     // The Server that spawned us
     private IBMChatServer server;
