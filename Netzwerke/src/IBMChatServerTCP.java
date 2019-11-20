@@ -1,11 +1,8 @@
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.Hashtable;
 import java.util.Scanner;
 
 // TODO:
@@ -30,7 +27,7 @@ import java.util.Scanner;
 
 public class IBMChatServerTCP {
     private ServerSocket ss;
-    private ArrayList<PrintWriter> outputStreams = new ArrayList<PrintWriter>();
+    private ArrayList<ServerThreadTCP> users = new ArrayList<ServerThreadTCP>();
 
     public IBMChatServerTCP(int port) throws IOException {
         listen(port);
@@ -43,18 +40,18 @@ public class IBMChatServerTCP {
         while (true) {
             Socket s = ss.accept();
             System.out.println("Connection from " + s);
-            PrintWriter dout = new PrintWriter(s.getOutputStream());
-            outputStreams.add(dout);
-
-            new ServerThreadTCP(this, s);
+            ServerThreadTCP user = new ServerThreadTCP(this, s);
+            users.add(user);
+            user.start();
         }
     }
 
-    void sendToAll(String message) {
-        synchronized (outputStreams) {
-            for (PrintWriter dout: outputStreams) {
-                dout.println(message);
-                dout.flush();
+    void sendToAll(ServerThreadTCP sender, String message) {
+        synchronized (users) {
+            for (ServerThreadTCP user: users) {
+                if (user != sender) {
+                    user.send(sender.getUsername() + ": " + message);
+                }
             }
         }
     }
@@ -84,11 +81,26 @@ public class IBMChatServerTCP {
 class ServerThreadTCP extends Thread {
     private IBMChatServerTCP server;
     private Socket socket;
+    private PrintWriter dout;
+
+    public String getUsername() {
+        return username;
+    }
+
+    private String username;
 
     public ServerThreadTCP(IBMChatServerTCP server, Socket socket) {
         this.server = server;
         this.socket = socket;
-        start();
+        this.username = "Anonym" + (int) (Math.random() * 10000);
+        try {
+            dout = new PrintWriter(socket.getOutputStream());
+        } catch (IOException e) {};
+            }
+
+    public void send(String message) {
+        dout.println(message);
+        dout.flush();
     }
 
     public void run() {
@@ -98,7 +110,7 @@ class ServerThreadTCP extends Thread {
             while (true) {
                 String message = din.nextLine();
                 System.out.println("Sending " + message);
-                server.sendToAll(message);
+                server.sendToAll(this, message);
             }
         } catch (IOException ie) {
             ie.printStackTrace();
