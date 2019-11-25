@@ -25,33 +25,33 @@ import java.util.Scanner;
 // 11. Gruppen (Konrad)
 // 16. Protokoll als TXT-Datei
 
-public class IBMChatServerTCP {
-    private ServerSocket ss;
-    private ArrayList<ServerThreadTCP> users = new ArrayList<ServerThreadTCP>();
+public class ChatServer {
+    private ServerSocket serverSocket;
+    private ArrayList<ClientThread> users = new ArrayList<ClientThread>();
 
-    public IBMChatServerTCP(int port) throws IOException {
-        listen(port);
+    public ChatServer(int port) {
+        // TODO: Behandeln Sie das Problem, dass die Socket nicht geöffnet werden kann
+        serverSocket = new ServerSocket(port);
+        System.out.println("Listening on " + serverSocket + " auf Port " + port);
+
+        listen();
     }
 
-    private void listen(int port) throws IOException {
-        ss = new ServerSocket(port);
-        System.out.println("Listening on " + ss);
-
+    private void listen() {
         while (true) {
-            Socket s = ss.accept();
+            // TODO: Kümmern Sie sich um die Exception
+            Socket s = serverSocket.accept();
             System.out.println("Connection from " + s);
-            ServerThreadTCP user = new ServerThreadTCP(this, s);
+            ClientThread user = new ClientThread(this, s);
             users.add(user);
             user.start();
         }
     }
 
-    void sendToAll(ServerThreadTCP sender, String message) {
-        synchronized (users) {
-            for (ServerThreadTCP user: users) {
-                if (user != sender) {
-                    user.send(sender.getUsername() + ": " + message);
-                }
+    void sendToAll(ClientThread sender, String message) {
+        for (ClientThread user: users) {
+            if (user != sender) {
+                user.send(sender.getUsername() + ": " + message);
             }
         }
     }
@@ -72,31 +72,29 @@ public class IBMChatServerTCP {
          */
     }
 
-    static public void main(String args[]) throws Exception {
+    static public void main(String args[]) {
         int port = 3000;
-        new IBMChatServerTCP(port);
+        new ChatServer(port);
     }
 }
 
-class ServerThreadTCP extends Thread {
-    private IBMChatServerTCP server;
+class ClientThread extends Thread {
+    private ChatServer server;
     private Socket socket;
+    private Scanner din;
     private PrintWriter dout;
-
-    public String getUsername() {
-        return username;
-    }
-
     private String username;
 
-    public ServerThreadTCP(IBMChatServerTCP server, Socket socket) {
+    public ClientThread(ChatServer server, Socket socket) {
         this.server = server;
         this.socket = socket;
         this.username = "Anonym" + (int) (Math.random() * 10000);
+
         try {
+            din = new Scanner(socket.getInputStream());
             dout = new PrintWriter(socket.getOutputStream());
         } catch (IOException e) {};
-            }
+    }
 
     public void send(String message) {
         dout.println(message);
@@ -105,17 +103,26 @@ class ServerThreadTCP extends Thread {
 
     public void run() {
         try {
-            Scanner din = new Scanner(socket.getInputStream());
-
             while (true) {
+                // Hier ist der Ort für Ihre Logik
                 String message = din.nextLine();
-                System.out.println("Sending " + message);
-                server.sendToAll(this, message);
+
+                if (message.matches("^\\/.+")) {
+                    // Wir haben einen Befehl, d.h. message beginnt mit einem /
+                } else {
+                    // Wir haben eine normale Botschaft bekommen, die an alle (anderen)
+                    // geschickt werden soll.
+                    System.out.println("Sending " + message);
+                    server.sendToAll(this, message);
+                    send("Nachricht verschickt");
+                }
             }
-        } catch (IOException ie) {
-            ie.printStackTrace();
         } finally {
             server.removeConnection(socket);
         }
+    }
+
+    public String getUsername() {
+        return username;
     }
 }

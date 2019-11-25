@@ -83,8 +83,8 @@ public class RegulaereAusdruecke {
 
     public static void main(String[] args) {
         // regExSimple();
-//        regExMatches();
-//        regExReplace();
+        // regExMatches();
+        // regExReplace();
         regExGroups();
     }
 }
